@@ -1,9 +1,7 @@
-Import-Module .\RestAPI.psm1
-Import-Module Az.avd
-
 $type="resizetest"
 $location="uksouth"
-$vmName=("AZ-PRD-UW48")
+$vmName=("MMD-DC479210286")
+$HostpoolName="vdpool-int-dev-prod-001"
 $vmResourceGroup=("rg-avd-developer-prd-001")
 $snapResourceGroup="rg-avd-developer-prd-001"
 $vmSize="Standard_D8as_v5"
@@ -24,11 +22,52 @@ function log($message) {
         $logEntry = $logDateTime + $message | Out-File $logFile -Append
     }
 }
-#$logFile = ($env:COMPUTERNAME + "_deployment.log")
 
 # Set subscription
 log("Setting subscription ID to " + $subscriptionId)
 az account set -s $subscriptionId
+
+# Get session state
+$sessionState = (Get-AzWvdUserSession -SessionHostName $vmName -HostpoolName $HostpoolName -ResourceGroupName $vmResourceGroup).Name
+If ($sessionState -ne $null) {
+    Write-Host "Machine has an active session. Exiting..." -ForegroundColor Red
+    log("Machine has an active session. Exiting...")
+    Exit
+}
+
+# Get power state
+$powerState = (az vm show -n $vmName -g $vmResourceGroup -d --query [powerState] -o tsv)
+Write-Host "Checking power state..." -ForegroundColor Yellow
+log("Checking power state...")
+If ($powerState -match "deallocated") {
+    Write-Host "Starting machine..." -ForegroundColor Yellow
+    log("Starting machine...")
+    az vm start -n $vmName -g $vmResourceGroup
+}
+
+# Move pagefile
+
+$powerState = (az vm show -n $vmName -g $vmResourceGroup -d --query [powerState] -o tsv)
+If ($powerState -match "running") {
+    Write-Host "Moving pagefile..." -ForegroundColor Yellow
+    log("Moving pagefile...")
+    $pagefileChange=az vm run-command invoke `
+        -g $vmResourceGroup `
+        -n $vmName `
+        --command-id RunPowerShellScript `
+        --scripts '(Get-WmiObject Win32_PageFileSetting).delete(); Set-WMIInstance -Class Win32_PageFileSetting -Arguments @{name=""C:\pagefile.sys"";InitialSize = 0; MaximumSize = 0}'
+
+    $pagefileResult = $pagefileChange | ConvertFrom-Json
+}
+
+If ($pagefileResult.value.message -contains "Error") {
+    Write-Host ("Pagefile move failed") -ForegroundColor Red
+    log("Pagefile move failed")
+    Exit
+    } Else {
+    Write-Host ("Pagefile move successful") -ForegroundColor Green
+    log("Pagefile move successful")
+}
 
 # Deallocate VM
 log("Deallocating VM...")
@@ -156,6 +195,7 @@ ForEach ($role in $roles) {
     -Scope $role.Scope
 }
 
+$command = @'Get-Process'
 
 # Install Powershell DSC extension. This may not be required
 
