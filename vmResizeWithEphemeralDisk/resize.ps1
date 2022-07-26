@@ -1,7 +1,6 @@
-$type="resizetest"
 $location="uksouth"
-$vmName=("MMD-DC479210286")
-$HostpoolName="vdpool-int-dev-prod-001"
+$vmName=("MMD-DC272372717")
+$hostpoolName="vdpool-int-dev-prod-001"
 $vmResourceGroup=("rg-avd-developer-prd-001")
 $snapResourceGroup="rg-avd-developer-prd-001"
 $vmSize="Standard_D8as_v5"
@@ -28,7 +27,7 @@ log("Setting subscription ID to " + $subscriptionId)
 az account set -s $subscriptionId
 
 # Get session state
-$sessionState = (Get-AzWvdUserSession -SessionHostName $vmName -HostpoolName $HostpoolName -ResourceGroupName $vmResourceGroup).Name
+$sessionState = (Get-AzWvdUserSession -SessionHostName $vmName -HostpoolName $hostpoolName -ResourceGroupName $vmResourceGroup).Name
 If ($sessionState -ne $null) {
     Write-Host "Machine has an active session. Exiting..." -ForegroundColor Red
     log("Machine has an active session. Exiting...")
@@ -60,7 +59,7 @@ If ($powerState -match "running") {
     $pagefileResult = $pagefileChange | ConvertFrom-Json
 }
 
-If ($pagefileResult.value.message -contains "Error") {
+If ($pagefileResult.value.message -match "Error") {
     Write-Host ("Pagefile move failed") -ForegroundColor Red
     log("Pagefile move failed")
     Exit
@@ -95,6 +94,7 @@ log("`$osDiskGeneration: " + $osDiskGeneration)
 log("`$$vmInfo.storageProfile.osDisk.deleteOption: " + ($vmInfo.storageProfile.osDisk.deleteOption))
 If ($vmInfo.storageProfile.osDisk.deleteOption -eq "Delete") {
     # We can automate the below update if we like...
+    log("OSDisk deletion option for " + $vmName + " is set to `"Delete`". Update this to be `"Detach`" and retry")
     Write-Host ("OSDisk deletion option for " + $vmName + " is set to `"Delete`". Update this to be `"Detach`" and retry") -ForegroundColor Red
     Exit
 }
@@ -102,6 +102,7 @@ If ($vmInfo.storageProfile.osDisk.deleteOption -eq "Delete") {
 log("`$$vmInfo.storageProfile.osDisk.deleteOption: " + ($vmInfo.storageProfile.osDisk.deleteOption))
 If ($vmInfo.networkProfile.networkInterfaces.deleteOption -eq "Delete") {
     # We can automate the below update if we like...
+    log("NIC deletion option for " + $deletionCheck.networkProfile.networkInterfaces.id.Split('/')[-1] + " is set to `"Delete`". Update this to be `"Detach`" and retry")
     Write-Host ("NIC deletion option for " + $deletionCheck.networkProfile.networkInterfaces.id.Split('/')[-1] + " is set to `"Delete`". Update this to be `"Detach`" and retry") -ForegroundColor Red
     Exit
 }
@@ -140,6 +141,7 @@ az disk create `
     --public-network-access Disabled
 
 # Output current group memberships scoped to the VM
+Write-Host "Gathering role assignments..." -ForegroundColor Yellow
 log("Gathering role assignments...")
 $roles = Get-AzRoleAssignment -Scope $vmInfo.id | Where-Object {$_.Scope -eq $vmInfo.id}
 log($roles)
@@ -151,6 +153,7 @@ log("Deleting VM `"" + $vmName + "`"...")
 az vm delete -g $vmResourceGroup -n $vmName --yes
 
 #Create VM by attaching the newly-created OS disk
+$nicId = $vmInfo.networkProfile.networkInterfaces.id
 Write-Host "Creating virtual machine..." -ForegroundColor Yellow
 log("Creating VM `"" + $vmName + "`"...")
 az vm create `
@@ -164,9 +167,20 @@ az vm create `
     --os-disk-delete-option Detach `
     --assign-identity [system]
 
+# Assign roles
+# Needs to be tested
+Write-Host "Restoring roles..." -ForegroundColor Yellow
+log("Restoring roles...")
+ForEach ($role in $roles) {
+    New-AzRoleAssignment -ObjectId $role.objectId `
+    -RoleDefinitionName $role.RoleDefinitionName `
+    -Scope $role.Scope
+}
+
 # To remove extension if required...
 # az vm extension delete -g $vmResourceGroup --vm-name $vmName -n AADLoginForWindows
 
+<#
 # Install AADLoginForWindowsWithIntune extension
 log("Installing AADLoginForWindowsWithIntune extension...")
 $domainJoinName = "AADLoginForWindowsWithIntune"
@@ -185,17 +199,7 @@ Set-AzVMExtension -VMName $vmName `
     -ExtensionType $domainJoinType `
     -Name $domainJoinName `
     -Settings $domainJoinSettings
-
-# Assign roles
-# Needs to be tested
-log("Restoring roles")
-ForEach ($role in $roles) {
-    New-AzRoleAssignment -ObjectId $role.objectId `
-    -RoleDefinitionName $role.RoleDefinitionName ``
-    -Scope $role.Scope
-}
-
-$command = @'Get-Process'
+#>
 
 # Install Powershell DSC extension. This may not be required
 
