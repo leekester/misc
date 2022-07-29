@@ -1,207 +1,66 @@
 {
-    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
-    "contentVersion": "1.0.0.0",
-    "parameters": {
-      "wafs": {
-        "value": [{
-          "name": "waf1",
-          "location": "Global",
-          "sku": "Classic_AzureFrontDoor",
-          "policySettings": {
-            "enabledState": "Enabled",
-            "mode": "Prevention",
-            "customBlockResponseStatusCode": 403,
-            "requestBodyCheck": "Enabled"
-          },
-          "customRules": {
-            "rules": [{
-                "name": "Hastings",
-                "enabledState": "Enabled",
-                "priority": 500,
-                "ruleType": "MatchRule",
-                "rateLimitDurationInMinutes": 1,
-                "rateLimitThreshold": 100,
-                "matchConditions": [{
-                    "matchVariable": "RemoteAddr",
-                    "operator": "IPMatch",
-                    "negateCondition": false,
-                    "matchValue": [
-                        "195.74.154.32/29",
-                        "213.121.244.0/28",
-                        "213.246.173.224/29",
-                        "5.32.155.30",
-                        "51.132.47.132",
-                        "80.169.171.130",
-                        "85.133.32.4",
-                        "91.125.13.129"
-                    ]
-                }]
-            }]
-          },
-          "managedRules": {
-              "managedRuleSets": [{
-                  "ruleSetType": "DefaultRuleSet",
-                  "ruleSetVersion": "1.0",
-                  "ruleGroupOverrides": [{
-                      "ruleGroupName": "SQLI",
-                      "rules": [{
-                          "ruleId": 942200,
-                          "enabledState": "Disabled",
-                          "action": "Block",
-                          "exclusions": []
-                      },
-                      {
-                          "ruleId": 942260,
-                          "enabledState": "Disabled",
-                          "action": "Block",
-                          "exclusions": []
-                      }
-              }]
-          }
-          "securityRules": [{
-            "name": "allowManagementInbound",
-            "description": "Allow inbound management traffic",
-            "protocol": "Tcp",
-            "sourcePortRange": "*",
-            "destinationPortRange": "",
-            "destinationPortRanges": [
-              "9000",
-              "9003",
-              "1438",
-              "1440",
-              "1452"
-            ],
-            "sourceAddressPrefix": "*",
-            "destinationAddressPrefix": "*",
-            "access": "Allow",
-            "priority": 110,
-            "direction": "Inbound",
-            "sourcePortRanges": [],
-            "sourceAddressPrefixes": [],
-            "destinationAddressPrefixes": []
-            },
-            {
-            "name": "allowMiSubnetInbound",
-            "description": "Allow inbound inter-node traffic",
-            "protocol": "*",
-            "sourcePortRange": "*",
-            "destinationPortRange": "*",
-            "destinationPortRanges": [],
-            "sourceAddressPrefix": "10.10.10.0/25",
-            "destinationAddressPrefix": "*",
-            "access": "Allow",
-            "priority": 160,
-            "direction": "Inbound",
-            "sourcePortRanges": [],
-            "sourceAddressPrefixes": [],
-            "destinationAddressPrefixes": []
-            },
-            {
-            "name": "allowHealthProbeInbound",
-            "description": "Allow health probe inbound",
-            "protocol": "*",
-            "sourcePortRange": "*",
-            "destinationPortRange": "*",
-            "destinationPortRanges": [],
-            "sourceAddressPrefix": "AzureLoadBalancer",
-            "destinationAddressPrefix": "*",
-            "access": "Allow",
-            "priority": 170,
-            "direction": "Inbound",
-            "sourcePortRanges": [],
-            "sourceAddressPrefixes": [],
-            "destinationAddressPrefixes": []
-            },
-            {
-            "name": "allowManagementOutbound",
-            "description": "Allow outbound TCP traffic on port 80,443,12000",
-            "protocol": "Tcp",
-            "sourcePortRange": "*",
-            "destinationPortRange": "",
-            "destinationPortRanges": [
-              "80",
-              "443",
-              "12000"
-            ],
-            "sourceAddressPrefix": "*",
-            "destinationAddressPrefix": "AzureCloud",
-            "access": "Allow",
-            "priority": 110,
-            "direction": "Outbound",
-            "sourcePortRanges": [],
-            "sourceAddressPrefixes": [],
-            "destinationAddressPrefixes": []
-            },
-            {
-            "name": "allowMiSubnetOutbound",
-            "description": "Allow outbound inter-node traffic",
-            "protocol": "*",
-            "sourcePortRange": "*",
-            "destinationPortRange": "*",
-            "destinationPortRanges": [],
-            "sourceAddressPrefix": "*",
-            "destinationAddressPrefix": "10.10.10.0/25",
-            "access": "Allow",
-            "priority": 140,
-            "direction": "Outbound",
-            "sourcePortRanges": [],
-            "sourceAddressPrefixes": [],
-            "destinationAddressPrefixes": []
-            },
-            {
-            "name": "allowSqlInbound",
-            "description": "Allow access to SQL data",
-            "protocol": "Tcp",
-            "sourcePortRange": "*",
-            "destinationPortRange": "1433",
-            "destinationPortRanges": [],
-            "sourceAddressPrefix": "VirtualNetwork",
-            "destinationAddressPrefix": "*",
-            "access": "Allow",
-            "priority": 1000,
-            "direction": "Inbound",
-            "sourcePortRanges": [],
-            "sourceAddressPrefixes": [],
-            "destinationAddressPrefixes": []
-            },
-            {
-            "name": "allowRedirectInbound",
-            "description": "Allow inbound redirect traffic to Managed Instance inside the virtual network",
-            "protocol": "Tcp",
-            "sourcePortRange": "*",
-            "destinationPortRange": "11000-11999",
-            "destinationPortRanges": [],
-            "sourceAddressPrefix": "VirtualNetwork",
-            "destinationAddressPrefix": "*",
-            "access": "Allow",
-            "priority": 1100,
-            "direction": "Inbound",
-            "sourcePortRanges": [],
-            "sourceAddressPrefixes": [],
-            "destinationAddressPrefixes": []
-            }
-          ]
-          },
-          {
-          "name": "nsg-vm",
-          "securityRules": [{
-            "name": "allowRdpInbound",
-            "description": "Allow inbound RDP traffic",
-            "protocol": "*",
-            "sourcePortRange": "*",
-            "destinationPortRange": "3389",
-            "destinationPortRanges": [],
-            "sourceAddressPrefix": "*",
-            "destinationAddressPrefix": "*",
-            "access": "Allow",
-            "priority": 110,
-            "direction": "Inbound",
-            "sourcePortRanges": [],
-            "sourceAddressPrefixes": [],
-            "destinationAddressPrefixes": []
-          }]
-          }
-        ]
-      }
-    }
-  }
+	"$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"wafs": {
+			"value": [{
+				"name": "waf1",
+				"location": "Global",
+				"sku": "Classic_AzureFrontDoor",
+				"policySettings": {
+					"enabledState": "Enabled",
+					"mode": "Prevention",
+					"customBlockResponseStatusCode": 403,
+					"requestBodyCheck": "Enabled"
+				},
+				"customRules": {
+					"rules": [{
+						"name": "Hastings",
+						"enabledState": "Enabled",
+						"priority": 500,
+						"ruleType": "MatchRule",
+						"rateLimitDurationInMinutes": 1,
+						"rateLimitThreshold": 100,
+						"matchConditions": [{
+							"matchVariable": "RemoteAddr",
+							"operator": "IPMatch",
+							"negateCondition": false,
+							"matchValue": [
+								"195.74.154.32/29",
+								"213.121.244.0/28",
+								"213.246.173.224/29",
+								"5.32.155.30",
+								"51.132.47.132",
+								"80.169.171.130",
+								"85.133.32.4",
+								"91.125.13.129"
+							]
+						}]
+					}]
+				},
+				"managedRules": {
+					"managedRuleSets": [{
+						"ruleSetType": "DefaultRuleSet",
+						"ruleSetVersion": "1.0",
+						"ruleGroupOverrides": [{
+							"ruleGroupName": "SQLI",
+							"rules": [{
+									"ruleId": 942200,
+									"enabledState": "Disabled",
+									"action": "Block",
+									"exclusions": []
+								},
+								{
+									"ruleId": 942260,
+									"enabledState": "Disabled",
+									"action": "Block",
+									"exclusions": []
+								}
+							]
+						}]
+					}]
+				}
+			}]
+		}
+	}
+}

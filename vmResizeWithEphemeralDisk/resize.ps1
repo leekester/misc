@@ -1,3 +1,12 @@
+$subscriptionId="e25e70e6-e550-4898-8f29-2886b13eb5a7"
+
+# Set subscription
+az account set -s $subscriptionId
+
+# Retrieve list of VMs in the subscription
+$allVms = az vm list | ConvertFrom-Json
+$d8dsVms = $allVms | Where-Object {$_.hardwareProfile.vmSize -eq "Standard_D8ds_v5"}
+
 $location="uksouth"
 $vmName=("MMD-DC272372717")
 $hostpoolName="vdpool-int-dev-prod-001"
@@ -6,7 +15,7 @@ $snapResourceGroup="rg-avd-developer-prd-001"
 $vmSize="Standard_D8as_v5"
 $osType="windows"
 $location="uksouth"
-$subscriptionId="e25e70e6-e550-4898-8f29-2886b13eb5a7"
+
 
 # Define logging function
 function log($message) {
@@ -22,10 +31,6 @@ function log($message) {
     }
 }
 
-# Set subscription
-log("Setting subscription ID to " + $subscriptionId)
-az account set -s $subscriptionId
-
 # Get session state
 $sessionState = (Get-AzWvdUserSession -SessionHostName $vmName -HostpoolName $hostpoolName -ResourceGroupName $vmResourceGroup).Name
 If ($sessionState -ne $null) {
@@ -39,6 +44,23 @@ $powerState = (az vm show -n $vmName -g $vmResourceGroup -d --query [powerState]
 Write-Host "Checking power state..." -ForegroundColor Yellow
 log("Checking power state...")
 If ($powerState -match "deallocated") {
+    Write-Host "Retrieving current list of tags..." -ForegroundColor Yellow
+    log("Retrieving current list of tags...")
+    $originalTags = az vm show --resource-group $vmResourceGroup --name $vmName --query tags | ConvertFrom-Json
+
+    If (($originalTags | Where-Object {$_.ShutdownOptOut -eq "True"}) -eq $null) {
+        Write-Host "Adding tag to opt out of power management..." -ForegroundColor Yellow
+        log("Adding tag to opt out of power management...")
+        az vm update `
+            --resource-group $vmResourceGroup `
+            --name $vmName `
+            --set tags.ShutdownOptOut=true
+    }
+    
+    Write-Host "Enabling drain mode..."
+    log("Enabling drain mode...")
+    Update-AzWvdSessionHost -ResourceGroupName $vmResourceGroup -HostPoolName $hostpoolName -Name $vmName -AllowNewSession:$False
+
     Write-Host "Starting machine..." -ForegroundColor Yellow
     log("Starting machine...")
     az vm start -n $vmName -g $vmResourceGroup
@@ -168,7 +190,6 @@ az vm create `
     --assign-identity [system]
 
 # Assign roles
-# Needs to be tested
 Write-Host "Restoring roles..." -ForegroundColor Yellow
 log("Restoring roles...")
 ForEach ($role in $roles) {
@@ -176,6 +197,21 @@ ForEach ($role in $roles) {
     -RoleDefinitionName $role.RoleDefinitionName `
     -Scope $role.Scope
 }
+
+# Remove ShutdownOptOut tag if necessary
+If (($originalTags | Where-Object {$_.ShutdownOptOut -eq "True"}) -eq $null) {
+        Write-Host "Removing ShutdownOptOut tag..." -ForegroundColor Yellow
+        log("Removing ShutdownOptOut tag...")
+        az vm update `
+        --resource-group $vmResourceGroup `
+        --name $vmName `
+        --remove tags.ShutdownOptOut
+}
+
+# Disable drain mode
+Write-Host "Disabling drain mode..."
+log("Disabling drain mode...")
+Update-AzWvdSessionHost -ResourceGroupName $vmResourceGroup -HostPoolName $hostpoolName -Name $vmName -AllowNewSession:$True
 
 # To remove extension if required...
 # az vm extension delete -g $vmResourceGroup --vm-name $vmName -n AADLoginForWindows
