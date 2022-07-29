@@ -1,0 +1,66 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"wafs": {
+			"value": [{
+				"name": "waf1",
+				"location": "Global",
+				"sku": "Classic_AzureFrontDoor",
+				"policySettings": {
+					"enabledState": "Enabled",
+					"mode": "Prevention",
+					"customBlockResponseStatusCode": 403,
+					"requestBodyCheck": "Enabled"
+				},
+				"customRules": {
+					"rules": [{
+						"name": "Hastings",
+						"enabledState": "Enabled",
+						"priority": 500,
+						"ruleType": "MatchRule",
+						"rateLimitDurationInMinutes": 1,
+						"rateLimitThreshold": 100,
+						"matchConditions": [{
+							"matchVariable": "RemoteAddr",
+							"operator": "IPMatch",
+							"negateCondition": false,
+							"matchValue": [
+								"195.74.154.32/29",
+								"213.121.244.0/28",
+								"213.246.173.224/29",
+								"5.32.155.30",
+								"51.132.47.132",
+								"80.169.171.130",
+								"85.133.32.4",
+								"91.125.13.129"
+							]
+						}]
+					}]
+				},
+				"managedRules": {
+					"managedRuleSets": [{
+						"ruleSetType": "DefaultRuleSet",
+						"ruleSetVersion": "1.0",
+						"ruleGroupOverrides": [{
+							"ruleGroupName": "SQLI",
+							"rules": [{
+									"ruleId": 942200,
+									"enabledState": "Disabled",
+									"action": "Block",
+									"exclusions": []
+								},
+								{
+									"ruleId": 942260,
+									"enabledState": "Disabled",
+									"action": "Block",
+									"exclusions": []
+								}
+							]
+						}]
+					}]
+				}
+			}]
+		}
+	}
+}
