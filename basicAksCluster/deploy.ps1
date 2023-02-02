@@ -15,6 +15,7 @@ az aks create `
   --name $clusterName `
   --node-vm-size $nodesize `
   --node-count $nodeCount `
+  --enable-blob-driver `
   --generate-ssh-keys
 
 # Retrieve AKS admin credentials
