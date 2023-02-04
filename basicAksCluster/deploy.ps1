@@ -16,6 +16,9 @@ az aks create `
   --node-vm-size $nodesize `
   --node-count $nodeCount `
   --enable-blob-driver `
+  --network-plugin azure `
+  --network-plugin-mode overlay `
+  --pod-cidr 192.168.0.0/16 `
   --generate-ssh-keys
 
 # Retrieve AKS admin credentials
