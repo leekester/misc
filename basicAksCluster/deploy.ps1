@@ -19,6 +19,7 @@ az aks create `
   --network-plugin azure `
   --network-plugin-mode overlay `
   --pod-cidr 192.168.0.0/16 `
+  --zones 1 `
   --generate-ssh-keys
 
 # Retrieve AKS admin credentials
