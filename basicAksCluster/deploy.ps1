@@ -22,6 +22,8 @@ az aks create `
   --zones 1 `
   --generate-ssh-keys
 
+az aks enable-addons --name $clusterName --resource-group $resourceGroup --addons open-service-mesh
+
 # Retrieve AKS admin credentials
 Write-Host "Retrieving AKS credentials" -ForegroundColor Yellow
 az aks get-credentials --name $clusterName --resource-group $resourceGroup --overwrite-existing
